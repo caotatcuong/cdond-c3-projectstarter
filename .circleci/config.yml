@@ -317,6 +317,7 @@ jobs:
       # attach workspace
       - attach_workspace:
           at: ~/
+      - checkout     
       - run:
           name: Install dependencies
           command: |
