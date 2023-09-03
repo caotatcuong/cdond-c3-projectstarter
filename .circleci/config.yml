@@ -360,10 +360,10 @@ jobs:
             unzip awscliv2.zip
             sudo ./aws/install
             # sudo ./aws/install -i /usr/local/aws-cli -b /usr/local/bin
-      - run:
-          name: Get backend url
-          command: |
-            # your code here
+      # - run:
+      #     name: Get backend url
+      #     command: |
+      #       # your code here
       - run:
           name: Backend smoke test.
           command: |
