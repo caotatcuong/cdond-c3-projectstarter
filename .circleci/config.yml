@@ -270,27 +270,44 @@ jobs:
     steps:
       # Checkout code from git
       - checkout
+
+
       - run:
           name: Install dependencies
           command: |
-            # your code here
             yum install -y tar gzip curl
             curl -sL https://rpm.nodesource.com/setup_10.x | bash -
-            yum install -y nodejs
+            yum install -y nodejs              
+
+      # - run:
+      #     name: Install node
+      #     command: |
+      #       curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.34.0/install.sh | bash
+      #       export NVM_DIR="$HOME/.nvm"
+      #       [ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"
+      #       nvm install 16
+
+      # - run:
+      #     name: Install ansible and awscli
+      #     command: |
+      #       pip3 install ansible
+      #       pip3 install awscli
 
       - run:
           name: Get backend url
           command: |
             # your code here
-            export BACKEND_PUBLIC_IP=$(aws ec2 describe-instances --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" --query 'Reservations[*].Instances[*].PublicDnsName' --output text)
+            export BACKEND_PUBLIC_IP=$(aws --region us-west-2 ec2 describe-instances --filters "Name=tag:Name,Values=backend-${CIRCLE_WORKFLOW_ID:0:7}" --query 'Reservations[*].Instances[*].PublicDnsName' --output text)
             export API_URL="http://${BACKEND_PUBLIC_IP}:3030"
             echo "${API_URL}"
             echo API_URL="http://${BACKEND_PUBLIC_IP}:3030" >> frontend/.env
             cat frontend/.env
+      
       - persist_to_workspace:
           root: ~/
           paths:
             - project/frontend/.env
+      
       - run:
           name: Deploy frontend objects
           command: |
@@ -301,27 +318,26 @@ jobs:
             tar -czvf artifact-"${CIRCLE_WORKFLOW_ID:0:7}".tar.gz dist
             aws s3 cp dist s3://udapeople-${CIRCLE_WORKFLOW_ID:0:7} --recursive
       # Here's where you will add some code to rollback on failure      
-      - destroy-environment 
       # - revert-migrations
-      
+      - destroy-environment     
+                    
   deploy-backend:
     docker:
       # Docker image here that supports Ansible
       - image: cimg/python:3.7-node
     steps:
       # Checkout code from git
-      - checkout  
+      - checkout       
       # Add ssh keys with fingerprint
       - add_ssh_keys:
           fingerprints: ["99:9f:b6:74:cd:9c:52:c0:3a:80:ca:21:c3:99:50:79"]
       # attach workspace
       - attach_workspace:
           at: ~/
-      - checkout     
+
       - run:
-          name: Install dependencies
+          name: Install aws dependencies
           command: |
-            # your code here
             curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
             unzip awscliv2.zip
             sudo ./aws/install
@@ -332,23 +348,26 @@ jobs:
             sudo apt install software-properties-common -y
             sudo add-apt-repository --yes --update ppa:ansible/ansible
             sudo apt install ansible -y
+#              pip install --upgrade
       - run:
           name: Deploy backend
           command: |
             # your code here
-            cd backend
+            cd backend # echo TYPEORM_HOST=$TYPEORM_HOST >> "backend/.env"
             npm i
             npm run build
             cd ..
-            ## Zip the directory
+            # Zip the directory
             tar -C backend -czvf artifact.tar.gz .
+            mkdir -p ~/project/.circleci/ansible/roles/deploy/files/
+            mv artifact.tar.gz .circleci/ansible/roles/deploy/files/artifact.tar.gz
             cd .circleci/ansible
             echo "Contents  of the inventory.txt file is -------"
             cat inventory.txt
-            ansible-playbook -i inventory.txt deploy-backend.yml
+            ansible-playbook -i inventory.txt deploy-backend.yml -v
       # Here's where you will add some code to rollback on failure  
-      - destroy-environment
       # - revert-migrations
+      - destroy-environment     
 
   smoke-test:
     docker:
